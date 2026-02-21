@@ -99,68 +99,146 @@ public class TransactionController {
                 .max(LocalDateTime::compareTo)
                 .orElse(null);
 
+        // VALIDATE PERIODS FIRST
+        List<String> periodErrors = validatePeriods(request, minDate, maxDate);
+        if (!periodErrors.isEmpty()) {
+            return ResponseEntity.badRequest().body(
+                    new FilterResponse(new ArrayList<>(),
+                            List.of(new InvalidTransaction(null, null, String.join("; ", periodErrors))))
+            );
+        }
+
+        // STEP 2: APPLY Q AND P RULES TO EACH TRANSACTION
         for (Transaction transaction : request.getTransactions()) {
-            List<String> errors = new ArrayList<>();
             LocalDateTime date = transaction.getTimestamp();
+            double currentRemanent = transaction.getRemanent();
 
-            // Validate q periods
-            if (request.getQ() != null) {
-                for (int i = 0; i < request.getQ().size(); i++) {
-                    QPeriod q = request.getQ().get(i);
-
-                    // Check if period is within expense range
-                    if (q.getStart().isBefore(minDate) || q.getEnd().isAfter(maxDate)) {
-                        errors.add("q period " + i + " is outside expense date range");
-                    }
-
-                    // Check start <= end
-                    if (q.getStart().isAfter(q.getEnd())) {
-                        errors.add("q period " + i + " has invalid start/end dates");
-                    }
-                }
+            // Apply Q rule: REPLACE with fixed amount if in any Q period
+            QPeriod applicableQ = findApplicableQPeriod(date, request.getQ());
+            if (applicableQ != null) {
+                currentRemanent = applicableQ.getFixed();  // REPLACE the remanent
             }
 
-            // Validate p periods
-            if (request.getP() != null) {
-                for (int i = 0; i < request.getP().size(); i++) {
-                    PPeriod p = request.getP().get(i);
+            // Apply P rule: ADD all extra amounts from P periods
+            double totalExtra = findTotalExtraFromPPeriods(date, request.getP());
+            currentRemanent += totalExtra;
 
-                    if (p.getStart().isBefore(minDate) || p.getEnd().isAfter(maxDate)) {
-                        errors.add("p period " + i + " is outside expense date range");
-                    }
+            // Create a new transaction with updated finalRemanent
+            Transaction processedTransaction = new Transaction(
+                    transaction.getTimestamp(),
+                    transaction.getAmount(),
+                    transaction.getCeiling(),
+                    transaction.getRemanent()
+            );
+            processedTransaction.setFinalRemanent(currentRemanent);
 
-                    if (p.getStart().isAfter(p.getEnd())) {
-                        errors.add("p period " + i + " has invalid start/end dates");
-                    }
-                }
-            }
-
-            // Validate k periods
-            if (request.getK() != null) {
-                for (int i = 0; i < request.getK().size(); i++) {
-                    KPeriod k = request.getK().get(i);
-
-                    if (k.getStart().isBefore(minDate) || k.getEnd().isAfter(maxDate)) {
-                        errors.add("k period " + i + " is outside expense date range");
-                    }
-
-                    if (k.getStart().isAfter(k.getEnd())) {
-                        errors.add("k period " + i + " has invalid start/end dates");
-                    }
-                }
-            }
-
-            if (errors.isEmpty()) {
-                valid.add(transaction);
-            } else {
-                invalid.add(new InvalidTransaction(
-                        transaction.getTimestamp(),
-                        transaction.getAmount(),
-                        String.join(", ", errors)));
-            }
+            valid.add(processedTransaction);
         }
 
         FilterResponse response = new FilterResponse(valid, invalid);
         return ResponseEntity.ok(response);
+    }
+
+    private QPeriod findApplicableQPeriod(LocalDateTime date, List<QPeriod> qPeriods) {
+        if (qPeriods == null || qPeriods.isEmpty()) {
+            return null;
+        }
+
+        List<QPeriod> matchingPeriods = new ArrayList<>();
+
+        // Find all Q periods containing this date
+        for (QPeriod q : qPeriods) {
+            if (!date.isBefore(q.getStart()) && !date.isAfter(q.getEnd())) {
+                matchingPeriods.add(q);
+            }
+        }
+
+        if (matchingPeriods.isEmpty()) {
+            return null;
+        }
+
+        // Sort by start date descending (latest first)
+        matchingPeriods.sort((a, b) -> {
+            int startCompare = b.getStart().compareTo(a.getStart());
+            if (startCompare != 0) {
+                return startCompare;
+            }
+            // If same start date, use original order (first in list)
+            return Integer.compare(qPeriods.indexOf(a), qPeriods.indexOf(b));
+        });
+
+        return matchingPeriods.get(0); // Return the latest-starting one
+    }
+
+
+     //Calculate total extra from all P periods containing this date
+    private double findTotalExtraFromPPeriods(LocalDateTime date, List<PPeriod> pPeriods) {
+        if (pPeriods == null || pPeriods.isEmpty()) {
+            return 0.0;
+        }
+
+        double totalExtra = 0.0;
+
+        for (PPeriod p : pPeriods) {
+            if (!date.isBefore(p.getStart()) && !date.isAfter(p.getEnd())) {
+                totalExtra += p.getExtra();
+            }
+        }
+
+        return totalExtra;
+    }
+
+     //Validate all periods against transaction date range
+    private List<String> validatePeriods(FilterRequest request,
+                                         LocalDateTime minDate,
+                                         LocalDateTime maxDate) {
+        List<String> errors = new ArrayList<>();
+
+        // Validate Q periods
+        if (request.getQ() != null) {
+            for (int i = 0; i < request.getQ().size(); i++) {
+                QPeriod q = request.getQ().get(i);
+
+                if (q.getStart().isAfter(q.getEnd())) {
+                    errors.add("q period " + i + ": start must be before end");
+                }
+
+                //if (q.getStart().isBefore(minDate) || q.getEnd().isAfter(maxDate)) {
+                //    errors.add("q period " + i + " outside transaction date range");
+                //}
+            }
+        }
+
+        // Validate P periods
+        if (request.getP() != null) {
+            for (int i = 0; i < request.getP().size(); i++) {
+                PPeriod p = request.getP().get(i);
+
+                if (p.getStart().isAfter(p.getEnd())) {
+                    errors.add("p period " + i + ": start must be before end");
+                }
+
+                //if (p.getStart().isBefore(minDate) || p.getEnd().isAfter(maxDate)) {
+                //    errors.add("p period " + i + " outside transaction date range");
+                //}
+            }
+        }
+
+        // Validate K periods
+        if (request.getK() != null) {
+            for (int i = 0; i < request.getK().size(); i++) {
+                KPeriod k = request.getK().get(i);
+
+                if (k.getStart().isAfter(k.getEnd())) {
+                    errors.add("k period " + i + ": start must be before end");
+                }
+
+                //if (k.getStart().isBefore(minDate) || k.getEnd().isAfter(maxDate)) {
+                //    errors.add("k period " + i + " outside transaction date range");
+                //}
+            }
+        }
+
+        return errors;
     }
 }
