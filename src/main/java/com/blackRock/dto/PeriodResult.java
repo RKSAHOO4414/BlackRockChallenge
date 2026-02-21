@@ -18,12 +18,10 @@ public class PeriodResult {
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime end;
 
-    private Double amount;      // Total invested in this period
+    private Double amount;
 
-    // For NPS
-    private Double profit;       // Inflation-adjusted gain
-    private Double taxBenefit;   // Tax benefit amount
+    private Double profit;
+    private Double taxBenefit;
 
-    // For Index Fund
-    private Double returns;      // Inflation-adjusted final amount
+    private Double returns;    
 }

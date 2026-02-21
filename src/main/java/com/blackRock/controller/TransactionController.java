@@ -38,7 +38,7 @@ public class TransactionController {
         List<InvalidTransaction> duplicates = new ArrayList<>();
 
         double annualIncome = request.getWage() * 12;
-        double maxInvestment = Math.min(annualIncome * 0.10, 200000); // 10% of income or 2L max
+        double maxInvestment = Math.min(annualIncome * 0.10, 200000);
 
         Set<LocalDateTime> seenTimestamps = new HashSet<>();
 

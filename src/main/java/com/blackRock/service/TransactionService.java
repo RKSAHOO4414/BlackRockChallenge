@@ -79,7 +79,7 @@ public class TransactionService {
                 ));
             }
         }
-        
+
         if (!validTransactions.isEmpty()) {
             transactionRepository.saveAll(validTransactions);
         }
