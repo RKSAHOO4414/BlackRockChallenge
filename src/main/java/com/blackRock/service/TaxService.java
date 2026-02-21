@@ -14,14 +14,11 @@ public class TaxService {
         double npsDeduction = Math.min(investedAmount,
                 Math.min(tenPercentOfIncome, NPS_MAX_LIMIT));
 
-        // Calculate tax without deduction
         double taxWithoutDeduction = calculateTax(annualIncome - STANDARD_DEDUCTION);
 
-        // Calculate tax with NPS deduction
         double taxableIncomeWithDeduction = annualIncome - STANDARD_DEDUCTION - npsDeduction;
         double taxWithDeduction = calculateTax(taxableIncomeWithDeduction);
 
-        // Tax benefit is the difference
         return Math.max(0, taxWithoutDeduction - taxWithDeduction);
     }
 

@@ -53,7 +53,6 @@ public class TransactionService {
                     continue;
                 }
 
-                // Calculate ceiling and remanent
                 double ceiling = Math.ceil(expense.getAmount() / 100) * 100;
                 double remanent = ceiling - expense.getAmount();
 
@@ -67,7 +66,6 @@ public class TransactionService {
                 validTransactions.add(transaction);
                 seenTimestamps.add(expense.getTimestamp());
 
-                // Update totals
                 totalInvested += ceiling;
                 totalRemanent += remanent;
                 totalExpenses += expense.getAmount();
@@ -81,8 +79,7 @@ public class TransactionService {
                 ));
             }
         }
-
-        // Save valid transactions to database
+        
         if (!validTransactions.isEmpty()) {
             transactionRepository.saveAll(validTransactions);
         }

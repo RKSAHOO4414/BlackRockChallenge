@@ -45,31 +45,26 @@ public class TransactionController {
         for (Transaction t : request.getTransactions()) {
             List<String> errors = new ArrayList<>();
 
-            // Check duplicate timestamp
             if (seenTimestamps.contains(t.getTimestamp())) {
                 duplicates.add(new InvalidTransaction(
                         t.getTimestamp(), t.getAmount(), "Duplicate timestamp"));
                 continue;
             }
 
-            // Validate amount range
             if (t.getAmount() <= 0 || t.getAmount() >= 500000) {
                 errors.add("Amount must be between 0 and 500,000");
             }
 
-            // Validate ceiling calculation
             double expectedCeiling = Math.ceil(t.getAmount() / 100) * 100;
             if (Math.abs(expectedCeiling - t.getCeiling()) > 0.01) {
                 errors.add("Invalid ceiling calculation");
             }
 
-            // Validate remanent
             double expectedRemanent = expectedCeiling - t.getAmount();
             if (Math.abs(expectedRemanent - t.getRemanent()) > 0.01) {
                 errors.add("Invalid remanent calculation");
             }
 
-            // Validate against wage limit
             if (t.getRemanent() > maxInvestment) {
                 errors.add("Investment exceeds 10% of annual income or 2L limit");
             }
@@ -94,7 +89,6 @@ public class TransactionController {
         List<Transaction> valid = new ArrayList<>();
         List<InvalidTransaction> invalid = new ArrayList<>();
 
-        // Get min and max dates from transactions
         LocalDateTime minDate = request.getTransactions().stream()
                 .map(Transaction::getTimestamp)
                 .min(LocalDateTime::compareTo)
