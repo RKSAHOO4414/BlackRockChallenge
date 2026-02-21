@@ -108,7 +108,7 @@ public class TransactionController {
             );
         }
 
-        // STEP 2: APPLY Q AND P RULES TO EACH TRANSACTION
+        // APPLY Q AND P RULES TO EACH TRANSACTION
         for (Transaction transaction : request.getTransactions()) {
             LocalDateTime date = transaction.getTimestamp();
             double currentRemanent = transaction.getRemanent();
@@ -116,14 +116,14 @@ public class TransactionController {
             // Apply Q rule: REPLACE with fixed amount if in any Q period
             QPeriod applicableQ = findApplicableQPeriod(date, request.getQ());
             if (applicableQ != null) {
-                currentRemanent = applicableQ.getFixed();  // REPLACE the remanent
+                currentRemanent = applicableQ.getFixed();
             }
 
             // Apply P rule: ADD all extra amounts from P periods
             double totalExtra = findTotalExtraFromPPeriods(date, request.getP());
             currentRemanent += totalExtra;
 
-            // Create a new transaction with updated finalRemanent
+            // updated finalRemanent
             Transaction processedTransaction = new Transaction(
                     transaction.getTimestamp(),
                     transaction.getAmount(),
@@ -146,7 +146,7 @@ public class TransactionController {
 
         List<QPeriod> matchingPeriods = new ArrayList<>();
 
-        // Find all Q periods containing this date
+        // Find  Q periods containing this date
         for (QPeriod q : qPeriods) {
             if (!date.isBefore(q.getStart()) && !date.isAfter(q.getEnd())) {
                 matchingPeriods.add(q);
@@ -163,11 +163,10 @@ public class TransactionController {
             if (startCompare != 0) {
                 return startCompare;
             }
-            // If same start date, use original order (first in list)
             return Integer.compare(qPeriods.indexOf(a), qPeriods.indexOf(b));
         });
 
-        return matchingPeriods.get(0); // Return the latest-starting one
+        return matchingPeriods.get(0);
     }
 
 
